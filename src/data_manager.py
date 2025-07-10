@@ -3,6 +3,7 @@ import torch
 import numpy as np
 import os
 import joblib
+import pickle
 from util_vis import *
 from config import * 
 from util_motion import *
@@ -11,6 +12,44 @@ sys.modules['sklearn.externals.joblib'] = joblib
 import six
 sys.modules['sklearn.externals.six'] = six
 import csv
+
+def load_kaedim_dataset(pickle_file):
+    """
+    Load data from Kaedim pickle file
+    Returns: (part_meshes, part_vol_pcs, part_sur_pcs, shape_meshes, shape_vol_pcs, shape_sur_pcs)
+    """
+    print(f'Loading Kaedim dataset from {pickle_file}')
+    
+    with open(pickle_file, 'rb') as f:
+        data = pickle.load(f)
+    
+    # The Kaedim dataset is a list of point clouds (numpy arrays)
+    # Each point cloud has shape (N, 3) where N is the number of points
+    if isinstance(data, list) and len(data) > 0:
+        # Convert numpy arrays to the expected format
+        point_clouds = []
+        for pc in data:
+            if isinstance(pc, np.ndarray) and pc.shape[1] == 3:
+                point_clouds.append(pc)
+            else:
+                print(f'Warning: Skipping item with shape {pc.shape if hasattr(pc, "shape") else "unknown"}')
+        
+        print(f'Loaded {len(point_clouds)} point clouds')
+        
+        # For Kaedim dataset, we'll use the same point clouds for both parts and shapes
+        # You may want to adjust this based on your specific needs
+        part_vol_pcs = point_clouds
+        part_sur_pcs = point_clouds  # Using same data for surface points
+        shape_vol_pcs = point_clouds
+        shape_sur_pcs = point_clouds  # Using same data for surface points
+        
+        # Create empty meshes (not available in this dataset)
+        part_meshes = []
+        shape_meshes = []
+        
+        return part_meshes, part_vol_pcs, part_sur_pcs, shape_meshes, shape_vol_pcs, shape_sur_pcs
+    else:
+        raise ValueError("Pickle file doesn't contain expected data structure (list of point clouds)")
 
 def read_split(split_file):
 
@@ -73,7 +112,21 @@ def get_shapes(data_dir, dataset, category, shape_ids, count, all_formats=False)
 
     count = int(count)
 
-    if dataset == 'partnet':
+    # Check if we should load from pickle file
+    if hasattr(global_args, 'pickle_file') and global_args.pickle_file:
+        print('Loading shapes from pickle file...')
+        _, _, _, shape_meshes, shape_vol_pcs, shape_sur_pcs = load_kaedim_dataset(global_args.pickle_file)
+        
+        # Limit to requested count
+        if len(shape_vol_pcs) > count:
+            shape_vol_pcs = shape_vol_pcs[:count]
+            if all_formats:
+                shape_meshes = shape_meshes[:count]
+                shape_sur_pcs = shape_sur_pcs[:count]
+        
+        return shape_meshes, shape_vol_pcs, shape_sur_pcs
+
+    elif dataset == 'partnet':
         return get_partnet_shapes(data_dir, category, shape_ids, count, all_formats)
     else:
         print('wrong dataset')
@@ -130,7 +183,21 @@ def get_parts(data_dir, dataset, category, count, shape_ids=[], all_formats=Fals
     count = int(count)
     print('loading parts.............')
 
-    if dataset == 'partnet':
+    # Check if we should load from pickle file
+    if hasattr(global_args, 'pickle_file') and global_args.pickle_file:
+        print('Loading parts from pickle file...')
+        part_meshes, part_vol_pcs, part_sur_pcs, _, _, _ = load_kaedim_dataset(global_args.pickle_file)
+        
+        # Limit to requested count
+        if len(part_vol_pcs) > count:
+            part_vol_pcs = part_vol_pcs[:count]
+            if all_formats:
+                part_meshes = part_meshes[:count]
+                part_sur_pcs = part_sur_pcs[:count]
+        
+        return part_meshes, part_vol_pcs, part_sur_pcs
+
+    elif dataset == 'partnet':
     
         part_meshes, part_vol_pcs, part_sur_pcs, part_to_shapeIds = get_partnet_parts(data_dir, category, shape_ids, count, all_formats)
 

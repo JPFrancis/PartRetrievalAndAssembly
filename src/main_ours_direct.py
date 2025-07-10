@@ -869,9 +869,18 @@ def direct_train(exp_folder, folder, category, target_pcs, target_indices, part_
 
 def run(data_dir, exp_folder, part_dataset, part_category, part_count, shape_dataset, shape_category, train_shape_count, test_shape_count, eval_on_train_shape_count, k):
 
-    _, train_shape_ids, test_shape_ids, _ = read_split(global_args.split_file)
-    
-    source_shape_ids, _, _, _ = read_split(global_args.split_file)
+    # Check if we're using pickle file (no split file needed)
+    if hasattr(global_args, 'pickle_file') and global_args.pickle_file:
+        print('Using pickle file - generating synthetic train/test split')
+        # Generate synthetic IDs for pickle data
+        total_shapes = max(train_shape_count + test_shape_count, 100)  # Ensure we have enough
+        all_ids = [f"shape_{i}" for i in range(total_shapes)]
+        source_shape_ids = all_ids
+        train_shape_ids = all_ids[:train_shape_count]
+        test_shape_ids = all_ids[train_shape_count:train_shape_count + test_shape_count]
+    else:
+        _, train_shape_ids, test_shape_ids, _ = read_split(global_args.split_file)
+        source_shape_ids, _, _, _ = read_split(global_args.split_file)
     
     print('train_shape_ids', train_shape_ids)
 

@@ -55,6 +55,9 @@ global_parser.add_argument("--data_dir", type=str, default='../../data')
 global_parser.add_argument("--exp_dir", type=str, default='ours')
 global_parser.add_argument("--split_file", type=str, default='split_partnet_faucet.csv')
 
+# New argument for pickle file
+global_parser.add_argument("--pickle_file", type=str, default='', help="Path to pickle file containing dataset (overrides data_dir)")
+
 global_parser.add_argument("--dataset_option", type=str, default='')
 global_parser.add_argument("--part_dataset", type=str, default='partnet')
 global_parser.add_argument("--part_category", type=str, default='faucet')
