@@ -287,25 +287,26 @@ def resolve(data_dir, exp_folder, part_dataset, part_category, part_count, shape
 
     print('resolve .... ')
 
-    _, train_shape_ids, test_shape_ids, _ = read_split(global_args.split_file)
-    source_shape_ids, _, _, _ = read_split(global_args.split_file)
+    train_shape_ids = list(range(16))
+    test_shape_ids = [18, 19]
+    part_ids = list(range(part_count))
 
     print('part_dataset', part_dataset)
     print('part_category', part_category)
     print('max_part_count', part_count)
     print('shape_category', shape_category)
     print('train_shape_count', train_shape_count)
-    print('source shape count', len(source_shape_ids))
+    print('part ids', len(part_ids))
     print('train shape count', len(train_shape_ids))
     print('test shape count', len(test_shape_ids))
 
     train_shape_ids = train_shape_ids[0:train_shape_count]
     test_shape_ids = test_shape_ids[0:test_shape_count]
 
-    part_meshes, part_vol_pcs, part_sur_pcs = get_parts(data_dir, part_dataset, part_category, part_count, source_shape_ids, True)
+    part_meshes, part_vol_pcs, part_sur_pcs = kaedim_get_parts(data_dir, part_dataset, part_category, part_count, part_ids, True)
     part_vol_pcs, part_sur_pcs, part_meshes = calibrate_parts(part_vol_pcs, part_sur_pcs, part_meshes)
 
-    train_shape_meshes, train_shape_vol_pcs, train_shape_sur_pcs = get_shapes(data_dir, shape_dataset, shape_category, train_shape_ids, train_shape_count, all_formats=True)
+    train_shape_meshes, train_shape_vol_pcs, train_shape_sur_pcs = kaedim_get_shapes(data_dir, shape_dataset, shape_category, train_shape_ids, train_shape_count, all_formats=True)
     eval_train_shape_ids = train_shape_ids[0:eval_on_train_shape_count]
 
     print('eval_train_shape_ids', eval_train_shape_ids)

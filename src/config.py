@@ -45,15 +45,15 @@ debug = False
 to_vis = False
 to_fig = False
 use_parallel = False
-pretrain_max_epoch = 3001
+pretrain_max_epoch = 10
 retrieval_max_iteration = 200 #1000
 post_max_iteration = 150 #1000
-init_epoch = 10001
-train_epoch = 401
+init_epoch = 10
+train_epoch = 5
 supervise_threshold = 0.004
-random_train_epoch = 100
-supervise_max_iteration = 3001
-cluster_max_iteration = 100
+random_train_epoch = 10
+supervise_max_iteration = 300
+cluster_max_iteration = 10
 
 
 import argparse
@@ -65,7 +65,7 @@ global_parser.add_argument("--exp_dir", type=str, default='ours')
 global_parser.add_argument("--dataset_option", type=str, default='')
 global_parser.add_argument("--part_dataset", type=str, default='kaedim')
 global_parser.add_argument("--part_category", type=str, default='chair')
-global_parser.add_argument("--part_count", type=int, default=500)
+global_parser.add_argument("--part_count", type=int, default=50)
 
 global_parser.add_argument("--shape_dataset", type=str, default='kaedim')
 global_parser.add_argument("--shape_category", type=str, default='chair')
