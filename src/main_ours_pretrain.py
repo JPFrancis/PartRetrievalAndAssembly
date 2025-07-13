@@ -181,7 +181,7 @@ def pre_train(exp_folder, part_vol_pcs, enc_dim, vae_lr):
     base_kld_weight = 0.00001
     #vae = VAE(part_vol_pcs.shape[1], enc_dim, 0.001) 
     vae = VAE(part_vol_pcs.shape[1], enc_dim, base_kld_weight)
-    vae.cuda()
+    vae.to(device)
     
     optimizer = torch.optim.Adam(list(vae.parameters()), lr=vae_lr)
 

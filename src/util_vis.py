@@ -75,7 +75,14 @@ color_palette_rgb_str = [
 
 import matplotlib._color_data as mcd
 
-device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+# --- FIX: Auto-detect the correct device ---
+if torch.backends.mps.is_available():
+    device = torch.device("mps")
+elif torch.cuda.is_available():
+    device = torch.device("cuda")
+else:
+    device = torch.device("cpu")
+# ------------------------------------------
 #device = "cpu"
 def to_numpy(item):
     if torch.is_tensor(item):

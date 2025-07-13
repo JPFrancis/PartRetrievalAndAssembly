@@ -42,7 +42,15 @@ def reflect_duplicate_region_single(region):
 
 
 def transform_with_homo_matrix_batched(pcs, mats):
-    pad = torch.ones((pcs.shape[0], pcs.shape[1], 1), device='cuda:0')
+    # --- FIX: Auto-detect the correct device ---
+    if torch.backends.mps.is_available():
+        device = torch.device("mps")
+    elif torch.cuda.is_available():
+        device = torch.device("cuda")
+    else:
+        device = torch.device("cpu")
+    # ------------------------------------------
+    pad = torch.ones((pcs.shape[0], pcs.shape[1], 1), device=device)
     pcs_homo = torch.cat((pcs, pad), dim=2)
     pcs_transformed = torch.bmm(mats, pcs_homo.transpose(1,2)).transpose(1,2)
     return pcs_transformed
@@ -66,6 +74,14 @@ def rotate_with_axis_center_angle(pc, axis, center, angle):
     return transform_with_homo_matrix(pc, mat_homo)
 
 def getRotMatrixHomo_batched(axes, centers, angles):
+        # --- FIX: Auto-detect the correct device ---
+    if torch.backends.mps.is_available():
+        device = torch.device("mps")
+    elif torch.cuda.is_available():
+        device = torch.device("cuda")
+    else:
+        device = torch.device("cpu")
+    # ------------------------------------------
     u = axes[:,0]
     v = axes[:,1]
     w = axes[:,2]
@@ -76,19 +92,19 @@ def getRotMatrixHomo_batched(axes, centers, angles):
     cos_theta = torch.cos(angles)
 
     m00 = u*u + (v*v + w*w)*cos_theta
-    m01 = u*v*(torch.ones(cos_theta.shape, device='cuda:0')-cos_theta)-w*sin_theta
-    m02 = u*w*(torch.ones(cos_theta.shape, device='cuda:0')-cos_theta)+v*sin_theta
-    m03 = (a*(v*v+w*w) - u*(b*v+c*w))*(torch.ones(cos_theta.shape, device='cuda:0')-cos_theta)+(b*w-c*v)*sin_theta
+    m01 = u*v*(torch.ones(cos_theta.shape, device=device)-cos_theta)-w*sin_theta
+    m02 = u*w*(torch.ones(cos_theta.shape, device=device)-cos_theta)+v*sin_theta
+    m03 = (a*(v*v+w*w) - u*(b*v+c*w))*(torch.ones(cos_theta.shape, device=device)-cos_theta)+(b*w-c*v)*sin_theta
 
-    m10 = u*v*(torch.ones(cos_theta.shape, device='cuda:0')-cos_theta)+w*sin_theta
+    m10 = u*v*(torch.ones(cos_theta.shape, device=device)-cos_theta)+w*sin_theta
     m11 = v*v+(u*u+w*w)*cos_theta
-    m12 = v*w*(torch.ones(cos_theta.shape, device='cuda:0')-cos_theta)-u*sin_theta
-    m13 = (b*(u*u+w*w) - v*(a*u+c*w))*(torch.ones(cos_theta.shape, device='cuda:0')-cos_theta)+(c*u-a*w)*sin_theta
+    m12 = v*w*(torch.ones(cos_theta.shape, device=device)-cos_theta)-u*sin_theta
+    m13 = (b*(u*u+w*w) - v*(a*u+c*w))*(torch.ones(cos_theta.shape, device=device)-cos_theta)+(c*u-a*w)*sin_theta
 
-    m20 = u*w*(torch.ones(cos_theta.shape, device='cuda:0')-cos_theta)-v*sin_theta
-    m21 = v*w*(torch.ones(cos_theta.shape, device='cuda:0')-cos_theta)+u*sin_theta
+    m20 = u*w*(torch.ones(cos_theta.shape, device=device)-cos_theta)-v*sin_theta
+    m21 = v*w*(torch.ones(cos_theta.shape, device=device)-cos_theta)+u*sin_theta
     m22 = w*w+(u*u+v*v)*cos_theta
-    m23 = (c*(u*u+v*v) - w*(a*u+b*v))*(torch.ones(cos_theta.shape, device='cuda:0')-cos_theta)+(a*v-b*u)*sin_theta
+    m23 = (c*(u*u+v*v) - w*(a*u+b*v))*(torch.ones(cos_theta.shape, device=device)-cos_theta)+(a*v-b*u)*sin_theta
 
     rot_mats = torch.stack((m00, m01, m02, m03, m10, m11, m12, m13, m20, m21, m22, m23)).transpose(0, 1)
     rot_mats = rot_mats.reshape(rot_mats.shape[0], 3, 4)
@@ -139,17 +155,33 @@ def translate_with_vector_batched(pcs, vectors):
 
 
 def translate_with_vector(pc, vector):
+    # --- FIX: Auto-detect the correct device ---
+    if torch.backends.mps.is_available():
+        device = torch.device("mps")
+    elif torch.cuda.is_available():
+        device = torch.device("cuda")
+    else:
+        device = torch.device("cpu")
+    # ------------------------------------------
     
     if not torch.is_tensor(pc):
-        pc = torch.tensor(pc, device='cuda:0', dtype=torch.float)
+        pc = torch.tensor(pc, device=device, dtype=torch.float)
     if not torch.is_tensor(vector):
-        vector = torch.tensor(vector, device='cuda:0', dtype=torch.float)
+        vector = torch.tensor(vector, device=device, dtype=torch.float)
 
     translated_pc = pc + vector
     return translated_pc
 
 def getIsotropicScaleMatrix_batched(scales):
-    identity_matrix = torch.eye(3, dtype=torch.float, device='cuda:0')
+    # --- FIX: Auto-detect the correct device ---
+    if torch.backends.mps.is_available():
+        device = torch.device("mps")
+    elif torch.cuda.is_available():
+        device = torch.device("cuda")
+    else:
+        device = torch.device("cpu")
+    # ------------------------------------------
+    identity_matrix = torch.eye(3, dtype=torch.float, device=device)
     identity_matrices = identity_matrix.repeat(len(scales), 1, 1)
     repeated_scales = (scales.unsqueeze(dim=1).unsqueeze(dim=1)).repeat(1, 3, 3) 
     scale_matrices = identity_matrices * repeated_scales
@@ -161,8 +193,17 @@ def isotropic_scale_with_value_batched(pcs, values):
 
 def anisotropic_scale_with_value_batched(pcs, scales):
 
+    # --- FIX: Auto-detect the correct device ---
+    if torch.backends.mps.is_available():
+        device = torch.device("mps")
+    elif torch.cuda.is_available():
+        device = torch.device("cuda")
+    else:
+        device = torch.device("cpu")
+    # ------------------------------------------
+    
     xscales = scales[:, 0]
-    x_identity_matrix = torch.eye(3, dtype=torch.float, device='cuda:0')
+    x_identity_matrix = torch.eye(3, dtype=torch.float, device=device)
     x_identity_matrix[1][1] = 0.0
     x_identity_matrix[2][2] = 0.0
     x_identity_matrices = x_identity_matrix.repeat(len(pcs), 1, 1)
@@ -170,7 +211,7 @@ def anisotropic_scale_with_value_batched(pcs, scales):
     x_scale_matrices = x_identity_matrices * repeated_xscales
 
     yscales = scales[:, 1]
-    y_identity_matrix = torch.eye(3, dtype=torch.float, device='cuda:0')
+    y_identity_matrix = torch.eye(3, dtype=torch.float, device=device)
     y_identity_matrix[0][0] = 0.0
     y_identity_matrix[2][2] = 0.0
     y_identity_matrices = y_identity_matrix.repeat(len(pcs), 1, 1)
@@ -178,7 +219,7 @@ def anisotropic_scale_with_value_batched(pcs, scales):
     y_scale_matrices = y_identity_matrices * repeated_yscales
 
     zscales = scales[:, 2]
-    z_identity_matrix = torch.eye(3, dtype=torch.float, device='cuda:0')
+    z_identity_matrix = torch.eye(3, dtype=torch.float, device=device)
     z_identity_matrix[0][0] = 0.0
     z_identity_matrix[1][1] = 0.0
     z_identity_matrices = z_identity_matrix.repeat(len(pcs), 1, 1)
@@ -202,7 +243,15 @@ def anisotropic_scale_with_value_batched(pcs, scales):
     return scaled_pcs
 
 def getAnisotropicScaleMatrix(scale_x, scale_y, scale_z):
-    scale_mat = torch.eye(3, device='cuda:0') * torch.stack([scale_x, scale_y, scale_z])
+    # --- FIX: Auto-detect the correct device ---
+    if torch.backends.mps.is_available():
+        device = torch.device("mps")
+    elif torch.cuda.is_available():
+        device = torch.device("cuda")
+    else:
+        device = torch.device("cpu")
+    # ------------------------------------------
+    scale_mat = torch.eye(3, device=device) * torch.stack([scale_x, scale_y, scale_z])
     #print('scale_mat', scale_mat)
    
     return scale_mat
@@ -217,6 +266,14 @@ def tr_sub(a, b, c, d):
   return 2 * a * b - 2 * c * d
 
 def quaternion_to_rotation_matrix(q):
+    # --- FIX: Auto-detect the correct device ---
+    if torch.backends.mps.is_available():
+        device = torch.device("mps")
+    elif torch.cuda.is_available():
+        device = torch.device("cuda")
+    else:
+        device = torch.device("cpu")
+    # ------------------------------------------
     normalized_q = q/torch.norm(q)
     w = normalized_q[0]
     x = normalized_q[1]
@@ -235,6 +292,14 @@ def quaternion_to_rotation_matrix(q):
     return mat
 
 def quaternion_to_rotation_matrix_batched(qs):
+    # --- FIX: Auto-detect the correct device ---
+    if torch.backends.mps.is_available():
+        device = torch.device("mps")
+    elif torch.cuda.is_available():
+        device = torch.device("cuda")
+    else:
+        device = torch.device("cpu")
+    # ------------------------------------------
     #print('torch.norm(qs, dim=1)', torch.norm(qs, dim=1).shape)
     #exit()
     normalized_qs = qs/(torch.norm(qs, dim=1).unsqueeze(dim=1))
