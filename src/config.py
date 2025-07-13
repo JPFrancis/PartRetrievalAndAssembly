@@ -7,7 +7,14 @@ import shutil
 import joblib
 
 
-device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+# --- FIX: Auto-detect the correct device ---
+if torch.backends.mps.is_available():
+    device = torch.device("mps")
+elif torch.cuda.is_available():
+    device = torch.device("cuda")
+else:
+    device = torch.device("cpu")
+# ------------------------------------------
 def to_numpy(item):
     if torch.is_tensor(item):
         if item.is_cuda:
@@ -51,22 +58,22 @@ cluster_max_iteration = 100
 
 import argparse
 global_parser = argparse.ArgumentParser()
-global_parser.add_argument("--data_dir", type=str, default='../../data')
+global_parser.add_argument("--data_dir", type=str, default='../data')
 global_parser.add_argument("--exp_dir", type=str, default='ours')
-global_parser.add_argument("--split_file", type=str, default='split_partnet_faucet.csv')
+#global_parser.add_argument("--split_file", type=str, default='./demo/split_partnet_faucet.csv')
 
 global_parser.add_argument("--dataset_option", type=str, default='')
-global_parser.add_argument("--part_dataset", type=str, default='partnet')
-global_parser.add_argument("--part_category", type=str, default='faucet')
-global_parser.add_argument("--part_count", type=int, default=2000)
+global_parser.add_argument("--part_dataset", type=str, default='kaedim')
+global_parser.add_argument("--part_category", type=str, default='chair')
+global_parser.add_argument("--part_count", type=int, default=500)
 
-global_parser.add_argument("--shape_dataset", type=str, default='partnet')
-global_parser.add_argument("--shape_category", type=str, default='faucet')
-global_parser.add_argument("--source_shape_count", type=int, default=500)
-global_parser.add_argument("--train_shape_count", type=int, default=250)
-global_parser.add_argument("--test_shape_count", type=int, default=120)
-global_parser.add_argument("--val_shape_count", type=int, default=80)
-global_parser.add_argument("--eval_on_train_shape_count", type=int, default=100)
+global_parser.add_argument("--shape_dataset", type=str, default='kaedim')
+global_parser.add_argument("--shape_category", type=str, default='chair')
+#global_parser.add_argument("--source_shape_count", type=int, default=500)
+global_parser.add_argument("--train_shape_count", type=int, default=16)
+global_parser.add_argument("--test_shape_count", type=int, default=2)
+global_parser.add_argument("--val_shape_count", type=int, default=2)
+global_parser.add_argument("--eval_on_train_shape_count", type=int, default=6)
 
 global_parser.add_argument("--k", type=int, default=6)
 global_parser.add_argument("--use_shift", type=int, default=1)

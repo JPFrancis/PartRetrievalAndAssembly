@@ -236,6 +236,35 @@ def calibrate_parts(part_vol_pcs, part_sur_pcs, part_meshes):
         
     return calibrated_part_vol_pcs, calibrated_part_sur_pcs, calibrated_part_meshes
 
+def kaedim_calibrate_parts(part_vol_pcs, part_sur_pcs):
+    calibrated_part_vol_pcs = []
+    calibrated_part_sur_pcs = []
+    calibrated_part_meshes = []
+    for i in range(len(part_vol_pcs)):
+        
+        origin = np.array([0, 0, 0])
+        calibrate_vector = torch.tensor(origin - np.mean(part_vol_pcs[i], axis=0), device=device, dtype=torch.float)
+        calibrate_angle = torch.tensor(get_y_aligned_reset_angle(part_vol_pcs[i]), device=device, dtype=torch.float)
+        min_values = np.min(part_vol_pcs[i], axis=0)
+        max_values = np.max(part_vol_pcs[i], axis=0)
+        diag = np.linalg.norm(max_values - min_values)
+        calibrate_scales = torch.tensor(np.array([2.0/diag, 2.0/diag, 2.0/diag]), device=device, dtype=torch.float)
+        part_vol_pc = torch.tensor(part_vol_pcs[i], device=device, dtype=torch.float)
+        
+        calibrated_part_vol_pc = part_vol_pc + calibrate_vector        
+        calibrated_part_vol_pc = up_rotate_parts(torch.stack([calibrated_part_vol_pc]), torch.stack([calibrate_angle]))[0]
+        #calibrated_part_vol_pc = anisotropic_scale_with_value_batched(torch.stack([calibrated_part_vol_pc]), torch.stack([calibrate_scales]))[0]
+        calibrated_part_vol_pcs.append(to_numpy(calibrated_part_vol_pc))
+
+        if len(part_sur_pcs) > 0:
+            part_sur_pc = torch.tensor(part_sur_pcs[i], device=device, dtype=torch.float)
+            calibrated_part_sur_pc = part_sur_pc + calibrate_vector        
+            calibrated_part_sur_pc = up_rotate_parts(torch.stack([calibrated_part_sur_pc]), torch.stack([calibrate_angle]))[0]
+            #calibrated_part_sur_pc = anisotropic_scale_with_value_batched(torch.stack([calibrated_part_sur_pc]), torch.stack([calibrate_scales]))[0]
+            calibrated_part_sur_pcs.append(to_numpy(calibrated_part_sur_pc))
+        
+    return calibrated_part_vol_pcs, calibrated_part_sur_pcs
+
 def get_segment_enc(segment, part_vae):
     calibrate_translation = -torch.mean(segment, dim=0)
     calibrate_angle = torch.tensor(get_y_aligned_reset_angle(segment), device=device, dtype=torch.float)

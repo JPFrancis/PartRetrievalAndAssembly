@@ -2,6 +2,7 @@
 
 import copy
 import os
+from sqlite3.dbapi2 import Timestamp
 import time
 import time
 import joblib
@@ -869,28 +870,34 @@ def direct_train(exp_folder, folder, category, target_pcs, target_indices, part_
 
 def run(data_dir, exp_folder, part_dataset, part_category, part_count, shape_dataset, shape_category, train_shape_count, test_shape_count, eval_on_train_shape_count, k):
 
-    _, train_shape_ids, test_shape_ids, _ = read_split(global_args.split_file)
+    #_, train_shape_ids, test_shape_ids, _ = read_split(global_args.split_file)
     
-    source_shape_ids, _, _, _ = read_split(global_args.split_file)
+    #source_shape_ids, _, _, _ = read_split(global_args.split_file)
     
-    print('train_shape_ids', train_shape_ids)
+    train_shape_ids = list(range(16))
+    test_shape_ids = [18, 19]
+    part_ids = list(range(part_count))
 
+    print('train_shape_ids', train_shape_ids)
     print('part_dataset', part_dataset)
     print('part_category', part_category)
     print('max_part_count', part_count)
     print('shape_category', shape_category)
     print('train_shape_count', train_shape_count)
-    print('source shape count', len(source_shape_ids))
+    #print('source shape count', len(source_shape_ids))
     print('train shape count', len(train_shape_ids))
     print('test shape count', len(test_shape_ids))
     print('k', k)
 
-    part_meshes, part_vol_pcs, part_sur_pcs = get_parts(data_dir, part_dataset, part_category, part_count, source_shape_ids, False)
+    part_vol_pcs, part_sur_pcs = kaedim_get_parts(data_dir, part_dataset, part_category, part_count, part_ids, False)
 
-    part_vol_pcs, part_sur_pcs, part_meshes = calibrate_parts(part_vol_pcs, part_sur_pcs, part_meshes)
+    print('len(part_vol_pcs)', len(part_vol_pcs))
+    print('len(part_sur_pcs)', len(part_sur_pcs))
 
-    train_shape_meshes, train_shape_vol_pcs, train_shape_sur_pcs = get_shapes(data_dir, shape_dataset, shape_category, train_shape_ids, train_shape_count)
-    test_shape_meshes, test_shape_vol_pcs, test_shape_sur_pcs = get_shapes(data_dir, shape_dataset, shape_category, test_shape_ids, test_shape_count)
+    part_vol_pcs, part_sur_pcs = kaedim_calibrate_parts(part_vol_pcs, part_sur_pcs)
+
+    train_shape_vol_pcs, train_shape_sur_pcs = kaedim_get_shapes(data_dir, shape_dataset, shape_category, train_shape_ids, train_shape_count)
+    test_shape_vol_pcs, test_shape_sur_pcs = kaedim_get_shapes(data_dir, shape_dataset, shape_category, test_shape_ids, test_shape_count)
 
     init_part_vae, init_part_encs = pre_train(exp_folder, np.array(part_vol_pcs), enc_dim, vae_lr)
 
@@ -977,7 +984,8 @@ def run(data_dir, exp_folder, part_dataset, part_category, part_count, shape_dat
 
 if __name__ == "__main__":
 
-    exp_folder = os.path.join(global_args.exp_dir, global_args.part_dataset + global_args.part_category + '_to_' + global_args.shape_dataset + global_args.shape_category + str(global_args.train_shape_count) + 'shift' + str(use_shift) + 'borrow' + str(use_borrow))
+    ##exp_folder = os.path.join(global_args.exp_dir, global_args.part_dataset + global_args.part_category + '_to_' + global_args.shape_dataset + global_args.shape_category + str(global_args.train_shape_count) + 'shift' + str(use_shift) + 'borrow' + str(use_borrow))
+    exp_folder = os.path.join(global_args.exp_dir, 'kaedim_', Timestamp.now().strftime('%Y%m%d_%H%M%S'));
     if not os.path.exists(exp_folder):
         os.makedirs(exp_folder)
 
