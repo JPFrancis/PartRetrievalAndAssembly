@@ -80,6 +80,7 @@ def get_kaedim_shapes(data_dir, category, shape_ids, count, all_formats):
     all_shape_vol_pcs = []
     shape_vol_pcs = []
     shape_sur_pcs = []
+    shape_meshes = []
 
     try:
         with open(shapes_file, 'rb') as f:
@@ -102,9 +103,13 @@ def get_kaedim_shapes(data_dir, category, shape_ids, count, all_formats):
             break
     
     for shape_vol_pc in shape_vol_pcs:
-        shape_sur_pcs.append(get_surface_from_volume(shape_vol_pc, 0.01))
+        shape_sur_pc = get_surface_from_volume(shape_vol_pc, 0.1)
+        shape_sur_pcs.append(shape_sur_pc)
+        shape_mesh = mesh_from_surface_cloud(shape_sur_pc)
+        shape_meshes.append(shape_mesh)
 
-    return shape_vol_pcs, shape_sur_pcs
+
+    return shape_meshes, shape_vol_pcs, shape_sur_pcs
 
 def get_shapes(data_dir, dataset, category, shape_ids, count, all_formats=False):
 
@@ -180,6 +185,7 @@ def get_kaedim_parts(data_dir, category, part_ids, count, all_formats):
     all_part_sur_pcs = []
     part_vol_pcs = []
     part_sur_pcs = []
+    part_meshes = []
 
     try:
         with open(parts_file, 'rb') as f:
@@ -220,10 +226,11 @@ def get_kaedim_parts(data_dir, category, part_ids, count, all_formats):
         # Convert Open3D PointCloud to numpy array
         vol_points = np.asarray(vol_pcd.points)
         part_vol_pcs.append(vol_points)
+        part_meshes.append(mesh_from_surface_cloud(part_sur_pc))
 
     print()  # New line after conversion progress
     print(f'Successfully loaded {len(part_vol_pcs)} parts')
-    return part_vol_pcs, part_sur_pcs
+    return part_meshes, part_vol_pcs, part_sur_pcs
 
 def get_parts(data_dir, dataset, category, count, shape_ids=[], all_formats=False):
 
@@ -259,9 +266,9 @@ def kaedim_get_parts(data_dir, dataset, category, count, part_ids=[], all_format
     count = int(count)
     print('loading parts.............')
 
-    part_vol_pcs, part_sur_pcs = get_kaedim_parts(data_dir, category, part_ids, count, all_formats)
+    part_meshes,part_vol_pcs, part_sur_pcs = get_kaedim_parts(data_dir, category, part_ids, count, all_formats)
 
-    return part_vol_pcs, part_sur_pcs
+    return part_meshes, part_vol_pcs, part_sur_pcs
 
 def get_surface_from_volume(point_cloud, alpha):
     """
@@ -301,6 +308,11 @@ def get_volume_from_surface(surface_points_np, num_points_to_generate):
     Returns:
         open3d.geometry.PointCloud: The resulting volumetric point cloud.
     """
+    # Log input validation
+    if len(surface_points_np) < 3:
+        print(f"WARNING: get_volume_from_surface called with insufficient points: {len(surface_points_np)}")
+        print(f"  This will likely result in empty output")
+    
     # --- FIX: Convert NumPy array to Open3D PointCloud ---
     surface_pcd = o3d.geometry.PointCloud()
     surface_pcd.points = o3d.utility.Vector3dVector(surface_points_np)
@@ -316,13 +328,68 @@ def get_volume_from_surface(surface_points_np, num_points_to_generate):
     bpa_mesh = o3d.geometry.TriangleMesh.create_from_point_cloud_ball_pivoting(
         surface_pcd, o3d.utility.DoubleVector([radius, radius * 2]))
 
+    # Log if mesh generation failed
+    if len(bpa_mesh.vertices) == 0:
+        print(f"WARNING: Ball pivoting mesh generation failed!")
+        print(f"  Input surface points: {len(surface_points_np)}")
+        print(f"  Average distance: {avg_dist}")
+        print(f"  Radius: {radius}")
+
     # Make the mesh watertight
     bpa_mesh.remove_degenerate_triangles()
     bpa_mesh.remove_duplicated_triangles()
     bpa_mesh.remove_duplicated_vertices()
     bpa_mesh.remove_non_manifold_edges()
+    
+    # Log if mesh became empty after cleaning
+    if len(bpa_mesh.vertices) == 0:
+        print(f"WARNING: Mesh became empty after cleaning operations!")
+        print(f"  Input surface points: {len(surface_points_np)}")
 
     # Sample points from the volume of the mesh
     volumetric_pcd = bpa_mesh.sample_points_uniformly(number_of_points=num_points_to_generate)
     
+    # Log if the result is empty
+    if len(volumetric_pcd.points) == 0:
+        print(f"WARNING: get_volume_from_surface returned empty point cloud!")
+        print(f"  Input surface points: {len(surface_points_np)}")
+        print(f"  Requested points: {num_points_to_generate}")
+        print(f"  Generated mesh vertices: {len(bpa_mesh.vertices)}")
+        print(f"  Generated mesh triangles: {len(bpa_mesh.triangles)}")
+    
     return volumetric_pcd
+
+def mesh_from_surface_cloud(surface_points_np):
+    """
+    Generates a mesh directly from a surface point cloud using the 
+    Ball Pivoting Algorithm. This is the recommended and most direct method.
+
+    Args:
+        surface_points_np (numpy.ndarray): An (N, 3) array of points representing the surface.
+
+    Returns:
+        open3d.geometry.TriangleMesh: The generated 3D mesh.
+    """
+    print("-> Generating mesh from surface point cloud...")
+    # Convert the numpy array to an Open3D PointCloud object
+    surface_pcd = o3d.geometry.PointCloud()
+    surface_pcd.points = o3d.utility.Vector3dVector(surface_points_np)
+
+    # First, estimate normals, which are required for the meshing algorithm.
+    # Normals tell the algorithm the orientation of the surface at each point.
+    surface_pcd.estimate_normals(
+        search_param=o3d.geometry.KDTreeSearchParamHybrid(radius=0.1, max_nn=30))
+
+    # Use the Ball Pivoting Algorithm to create the mesh.
+    # Imagine a ball of a certain radius rolling across the points; where it touches
+    # three points, a triangle is formed.
+    distances = surface_pcd.compute_nearest_neighbor_distance()
+    avg_dist = np.mean(distances)
+    radius = 1.5 * avg_dist
+    
+    # The radii parameter is a list of ball radii to try.
+    mesh = o3d.geometry.TriangleMesh.create_from_point_cloud_ball_pivoting(
+        surface_pcd, o3d.utility.DoubleVector([radius, radius * 2]))
+    
+    print("   Done.")
+    return mesh

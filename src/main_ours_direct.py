@@ -255,7 +255,7 @@ def swap_recon_symmetry(shape_pc, part_recon_pcs, k):
     eps = 0.1
     region_dists = torch.cdist(shape_uncovered_region.unsqueeze(dim=0), shape_uncovered_region.unsqueeze(dim=0))[0]
     region_adjacency = to_numpy(region_dists < eps)
-    region_graph = nx.from_numpy_matrix(region_adjacency)
+    region_graph = nx.from_numpy_array(region_adjacency)
 
     max_point_count = 0 
     largest_cc_region = None
@@ -320,7 +320,7 @@ def swap_recon(shape_pc, part_recon_pcs, k):
     eps = 0.1
     region_dists = torch.cdist(shape_uncovered_region.unsqueeze(dim=0), shape_uncovered_region.unsqueeze(dim=0))[0]
     region_adjacency = to_numpy(region_dists < eps)
-    region_graph = nx.from_numpy_matrix(region_adjacency)
+    region_graph = nx.from_numpy_array(region_adjacency)
 
     max_point_count = 0 
     largest_cc_region = None
@@ -515,7 +515,7 @@ def get_best_connected_components_new(region_pc, other_region_pcs, target_pc, ta
 
     region_dists = torch.cdist(region_pc.unsqueeze(dim=0), region_pc.unsqueeze(dim=0))[0]
     region_adjacency = to_numpy(region_dists < eps)
-    region_graph = nx.from_numpy_matrix(region_adjacency)
+    region_graph = nx.from_numpy_array(region_adjacency)
 
     best_region = None
     use_euclidean = True
@@ -727,7 +727,7 @@ def direct_train(exp_folder, folder, category, target_pcs, target_indices, part_
 
     start = time.time()
 
-    max_iteration = 1400
+    max_iteration = 140
     for iteration in range(0, max_iteration):
         
         print('part_num', part_num, 'train iteration', iteration, '-----------------------------------')
@@ -889,15 +889,15 @@ def run(data_dir, exp_folder, part_dataset, part_category, part_count, shape_dat
     print('test shape count', len(test_shape_ids))
     print('k', k)
 
-    part_vol_pcs, part_sur_pcs = kaedim_get_parts(data_dir, part_dataset, part_category, part_count, part_ids, False)
+    part_meshes, part_vol_pcs, part_sur_pcs = kaedim_get_parts(data_dir, part_dataset, part_category, part_count, part_ids, False)
 
     print('len(part_vol_pcs)', len(part_vol_pcs))
     print('len(part_sur_pcs)', len(part_sur_pcs))
 
-    part_vol_pcs, part_sur_pcs = kaedim_calibrate_parts(part_vol_pcs, part_sur_pcs)
+    _, part_vol_pcs, part_sur_pcs = calibrate_parts(part_meshes, part_vol_pcs, part_sur_pcs)
 
-    train_shape_vol_pcs, train_shape_sur_pcs = kaedim_get_shapes(data_dir, shape_dataset, shape_category, train_shape_ids, train_shape_count)
-    test_shape_vol_pcs, test_shape_sur_pcs = kaedim_get_shapes(data_dir, shape_dataset, shape_category, test_shape_ids, test_shape_count)
+    _, train_shape_vol_pcs, train_shape_sur_pcs = kaedim_get_shapes(data_dir, shape_dataset, shape_category, train_shape_ids, train_shape_count)
+    _, test_shape_vol_pcs, test_shape_sur_pcs = kaedim_get_shapes(data_dir, shape_dataset, shape_category, test_shape_ids, test_shape_count)
 
     init_part_vae, init_part_encs = pre_train(exp_folder, np.array(part_vol_pcs), enc_dim, vae_lr)
 
@@ -985,7 +985,8 @@ def run(data_dir, exp_folder, part_dataset, part_category, part_count, shape_dat
 if __name__ == "__main__":
 
     ##exp_folder = os.path.join(global_args.exp_dir, global_args.part_dataset + global_args.part_category + '_to_' + global_args.shape_dataset + global_args.shape_category + str(global_args.train_shape_count) + 'shift' + str(use_shift) + 'borrow' + str(use_borrow))
-    exp_folder = os.path.join(global_args.exp_dir, 'kaedim_', Timestamp.now().strftime('%Y%m%d_%H%M%S'));
+    exp_folder = os.path.join(global_args.exp_dir, global_args.part_dataset + global_args.part_category + '_to_' + global_args.shape_dataset + global_args.shape_category + str(global_args.train_shape_count) + 'shift' + str(use_shift) + 'borrow' + str(use_borrow))
+    #exp_folder = os.path.join(global_args.exp_dir, 'kaedim_', Timestamp.now().strftime('%Y%m%d_%H%M%S'));
     if not os.path.exists(exp_folder):
         os.makedirs(exp_folder)
 
