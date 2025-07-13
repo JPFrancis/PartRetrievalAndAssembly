@@ -10,6 +10,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from scipy.spatial.transform import Rotation as R
+import open3d as o3d
 from main_ours_pretrain import *
 from util_collision import *
 from util_motion import *
@@ -202,7 +203,20 @@ def calibrate_parts(part_vol_pcs, part_sur_pcs, part_meshes):
     calibrated_part_vol_pcs = []
     calibrated_part_sur_pcs = []
     calibrated_part_meshes = []
+    
     for i in range(len(part_vol_pcs)):
+        
+        # Validate that part_vol_pcs[i] is a proper 2D array
+        if not isinstance(part_vol_pcs[i], np.ndarray) or part_vol_pcs[i].ndim != 2:
+            print(f"Error: part_vol_pcs[{i}] is not a valid 2D array. Shape: {part_vol_pcs[i].shape if hasattr(part_vol_pcs[i], 'shape') else 'scalar'}")
+            print(f"Halting script due to invalid point cloud data")
+            raise ValueError(f"Invalid point cloud data for part {i}")
+        
+        # Additional validation to ensure we have enough points
+        if part_vol_pcs[i].shape[0] < 3:
+            print(f"Error: part_vol_pcs[{i}] has too few points ({part_vol_pcs[i].shape[0]}).")
+            print(f"Halting script due to insufficient point cloud data")
+            raise ValueError(f"Insufficient point cloud data for part {i}")
         
         origin = np.array([0, 0, 0])
         calibrate_vector = torch.tensor(origin - np.mean(part_vol_pcs[i], axis=0), device=device, dtype=torch.float)
@@ -231,7 +245,7 @@ def calibrate_parts(part_vol_pcs, part_sur_pcs, part_meshes):
             calibrated_part_mesh_vertices = up_rotate_parts(torch.stack([calibrated_part_mesh_vertices]), torch.stack([calibrate_angle]))[0]
             #calibrated_part_mesh_vertices = anisotropic_scale_with_value_batched(torch.stack([calibrated_part_mesh_vertices]), torch.stack([calibrate_scales]))[0]
             calibrated_part_mesh = copy.deepcopy(part_meshes[i])
-            calibrated_part_mesh.vertices = to_numpy(calibrated_part_mesh_vertices)
+            calibrated_part_mesh.vertices = o3d.utility.Vector3dVector(to_numpy(calibrated_part_mesh_vertices))
             calibrated_part_meshes.append(calibrated_part_mesh)
         
     return calibrated_part_vol_pcs, calibrated_part_sur_pcs, calibrated_part_meshes

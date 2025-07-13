@@ -894,10 +894,49 @@ def run(data_dir, exp_folder, part_dataset, part_category, part_count, shape_dat
     print('len(part_vol_pcs)', len(part_vol_pcs))
     print('len(part_sur_pcs)', len(part_sur_pcs))
 
-    _, part_vol_pcs, part_sur_pcs = calibrate_parts(part_meshes, part_vol_pcs, part_sur_pcs)
+    part_vol_pcs, part_sur_pcs, part_meshes = calibrate_parts(part_vol_pcs, part_sur_pcs, part_meshes)
+
+    # Standardize all point clouds to exactly 512 points
+    print("Standardizing point clouds to 512 points...")
+    for i in range(len(part_vol_pcs)):
+        if len(part_vol_pcs[i]) != 512:
+            if len(part_vol_pcs[i]) > 512:
+                indices = np.random.choice(len(part_vol_pcs[i]), 512, replace=False)
+                part_vol_pcs[i] = part_vol_pcs[i][indices]
+            else:
+                indices = np.random.choice(len(part_vol_pcs[i]), 512, replace=True)
+                part_vol_pcs[i] = part_vol_pcs[i][indices]
+        
+        if len(part_sur_pcs[i]) != 512:
+            if len(part_sur_pcs[i]) > 512:
+                indices = np.random.choice(len(part_sur_pcs[i]), 512, replace=False)
+                part_sur_pcs[i] = part_sur_pcs[i][indices]
+            else:
+                indices = np.random.choice(len(part_sur_pcs[i]), 512, replace=True)
+                part_sur_pcs[i] = part_sur_pcs[i][indices]
 
     _, train_shape_vol_pcs, train_shape_sur_pcs = kaedim_get_shapes(data_dir, shape_dataset, shape_category, train_shape_ids, train_shape_count)
     _, test_shape_vol_pcs, test_shape_sur_pcs = kaedim_get_shapes(data_dir, shape_dataset, shape_category, test_shape_ids, test_shape_count)
+
+    # Standardize shape point clouds to exactly 512 points
+    print("Standardizing shape point clouds to 512 points...")
+    for i in range(len(train_shape_vol_pcs)):
+        if len(train_shape_vol_pcs[i]) != 512:
+            if len(train_shape_vol_pcs[i]) > 512:
+                indices = np.random.choice(len(train_shape_vol_pcs[i]), 512, replace=False)
+                train_shape_vol_pcs[i] = train_shape_vol_pcs[i][indices]
+            else:
+                indices = np.random.choice(len(train_shape_vol_pcs[i]), 512, replace=True)
+                train_shape_vol_pcs[i] = train_shape_vol_pcs[i][indices]
+    
+    for i in range(len(test_shape_vol_pcs)):
+        if len(test_shape_vol_pcs[i]) != 512:
+            if len(test_shape_vol_pcs[i]) > 512:
+                indices = np.random.choice(len(test_shape_vol_pcs[i]), 512, replace=False)
+                test_shape_vol_pcs[i] = test_shape_vol_pcs[i][indices]
+            else:
+                indices = np.random.choice(len(test_shape_vol_pcs[i]), 512, replace=True)
+                test_shape_vol_pcs[i] = test_shape_vol_pcs[i][indices]
 
     init_part_vae, init_part_encs = pre_train(exp_folder, np.array(part_vol_pcs), enc_dim, vae_lr)
 

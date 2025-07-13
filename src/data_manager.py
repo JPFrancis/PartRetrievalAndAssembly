@@ -15,6 +15,9 @@ import pickle
 import open3d as o3d
 import numpy as np
 
+# Constants
+POINT_CLOUD_SIZE = 512
+
 def read_split(split_file):
 
     source_ids = []
@@ -103,9 +106,19 @@ def get_kaedim_shapes(data_dir, category, shape_ids, count, all_formats):
             break
     
     for shape_vol_pc in shape_vol_pcs:
+        # Normalize shape volume points to POINT_CLOUD_SIZE
+        if len(shape_vol_pc) > POINT_CLOUD_SIZE:
+            indices = np.random.choice(len(shape_vol_pc), POINT_CLOUD_SIZE, replace=False)
+            shape_vol_pc = shape_vol_pc[indices]
+        elif len(shape_vol_pc) < POINT_CLOUD_SIZE:
+            indices = np.random.choice(len(shape_vol_pc), POINT_CLOUD_SIZE, replace=True)
+            shape_vol_pc = shape_vol_pc[indices]
+        
         shape_sur_pc = get_surface_from_volume(shape_vol_pc, 0.1)
+        # Convert Open3D PointCloud to numpy array for mesh_from_surface_cloud
+        shape_sur_pc_np = np.asarray(shape_sur_pc.points)
         shape_sur_pcs.append(shape_sur_pc)
-        shape_mesh = mesh_from_surface_cloud(shape_sur_pc)
+        shape_mesh = mesh_from_surface_cloud(shape_sur_pc_np)
         shape_meshes.append(shape_mesh)
 
 
@@ -209,13 +222,20 @@ def get_kaedim_parts(data_dir, category, part_ids, count, all_formats):
         filled_length = int(bar_length * progress / 100)
         bar = '█' * filled_length + '░' * (bar_length - filled_length)
         print(f'\rLoading parts: [{bar}] {progress:.1f}% ({i+1}/{min(len(part_ids), count)})', end='', flush=True)
-        part_sur_pcs.append(all_part_sur_pcs[part_id])
+        surface_pc = all_part_sur_pcs[part_id]
+        
+        # Convert to numpy array if it's an Open3D PointCloud
+        if hasattr(surface_pc, 'points'):
+            surface_pc = np.asarray(surface_pc.points)
+        
+        part_sur_pcs.append(surface_pc)
 
         if len(part_sur_pcs) >= count:
             break
     
     print()  # New line after loading progress
     print(f'Converting {len(part_sur_pcs)} surface point clouds to volume...')
+
     for i, part_sur_pc in enumerate(part_sur_pcs):
         progress = (i + 1) / len(part_sur_pcs) * 100
         bar_length = 30
@@ -225,8 +245,38 @@ def get_kaedim_parts(data_dir, category, part_ids, count, all_formats):
         vol_pcd = get_volume_from_surface(part_sur_pc, 5000)
         # Convert Open3D PointCloud to numpy array
         vol_points = np.asarray(vol_pcd.points)
+        
+        # Validate the volume points
+        if len(vol_points) == 0:
+            print(f"Error: Empty volume points generated for part {i}")
+            print(f"  Surface points: {len(part_sur_pc)}")
+            print(f"  Halting script due to empty volume point cloud")
+            raise ValueError(f"Empty volume point cloud for part {i}")
+        
+        # Normalize volume points to exactly POINT_CLOUD_SIZE points
+        if len(vol_points) > POINT_CLOUD_SIZE:
+            # Randomly sample POINT_CLOUD_SIZE points
+            indices = np.random.choice(len(vol_points), POINT_CLOUD_SIZE, replace=False)
+            vol_points = vol_points[indices]
+        elif len(vol_points) < POINT_CLOUD_SIZE:
+            # Repeat points to reach POINT_CLOUD_SIZE (with some randomness)
+            indices = np.random.choice(len(vol_points), POINT_CLOUD_SIZE, replace=True)
+            vol_points = vol_points[indices]
+        
         part_vol_pcs.append(vol_points)
         part_meshes.append(mesh_from_surface_cloud(part_sur_pc))
+        
+        # Also normalize surface points to POINT_CLOUD_SIZE
+        if len(part_sur_pc) > POINT_CLOUD_SIZE:
+            indices = np.random.choice(len(part_sur_pc), POINT_CLOUD_SIZE, replace=False)
+            part_sur_pc = part_sur_pc[indices]
+        elif len(part_sur_pc) < POINT_CLOUD_SIZE:
+            indices = np.random.choice(len(part_sur_pc), POINT_CLOUD_SIZE, replace=True)
+            part_sur_pc = part_sur_pc[indices]
+        
+        # Store the normalized surface point cloud (numpy array) in part_sur_pcs
+        part_sur_pcs[i] = part_sur_pc
+        
 
     print()  # New line after conversion progress
     print(f'Successfully loaded {len(part_vol_pcs)} parts')
@@ -370,7 +420,6 @@ def mesh_from_surface_cloud(surface_points_np):
     Returns:
         open3d.geometry.TriangleMesh: The generated 3D mesh.
     """
-    print("-> Generating mesh from surface point cloud...")
     # Convert the numpy array to an Open3D PointCloud object
     surface_pcd = o3d.geometry.PointCloud()
     surface_pcd.points = o3d.utility.Vector3dVector(surface_points_np)
@@ -391,5 +440,4 @@ def mesh_from_surface_cloud(surface_points_np):
     mesh = o3d.geometry.TriangleMesh.create_from_point_cloud_ball_pivoting(
         surface_pcd, o3d.utility.DoubleVector([radius, radius * 2]))
     
-    print("   Done.")
     return mesh

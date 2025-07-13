@@ -9,6 +9,7 @@ import scipy
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+import open3d as o3d
 from main_ours_pretrain import *
 from joblib import Parallel, delayed
 
@@ -126,7 +127,7 @@ def adjust_filter(part_meshes, part_syms, part_translations, part_scales, part_a
             sym_info[i-1]=1        
             transformed_retrieved_part_vertices = reflect_parts(torch.stack([transformed_retrieved_part_vertices]), torch.stack([torch.tensor([1.0,0.0,0.0], device=device, dtype=torch.float)]))[0]
             
-        part_meshes_before[i].vertices = to_numpy(transformed_retrieved_part_vertices)
+        part_meshes_before[i].vertices = o3d.utility.Vector3dVector(to_numpy(transformed_retrieved_part_vertices))
     retrieval_dict['recon_part_meshes_before'] = part_meshes_before
 
     part_meshes_after = copy.deepcopy(part_meshes_before)
@@ -256,6 +257,45 @@ def resolve_shape(shape_id, shape_ids, part_meshes, part_vol_pcs, part_sur_pcs, 
 
         retrieval_dict = adjust_filter(retrieved_part_meshes, part_syms, part_translations, part_scales, part_angles, shape_mesh, shape_vol_pc, shape_id, False)
         retrieval_dict['part_indices'] = part_indices
+        
+        # Convert Open3D meshes to serializable format before saving
+        if 'recon_part_meshes_before' in retrieval_dict:
+            serializable_meshes_before = []
+            for mesh in retrieval_dict['recon_part_meshes_before']:
+                if hasattr(mesh, 'vertices') and hasattr(mesh, 'triangles'):
+                    # Convert Open3D mesh to dict with vertices and triangles
+                    mesh_dict = {
+                        'vertices': np.asarray(mesh.vertices),
+                        'triangles': np.asarray(mesh.triangles)
+                    }
+                    serializable_meshes_before.append(mesh_dict)
+                else:
+                    serializable_meshes_before.append(mesh)
+            retrieval_dict['recon_part_meshes_before'] = serializable_meshes_before
+        
+        if 'recon_part_meshes_after' in retrieval_dict:
+            serializable_meshes_after = []
+            for mesh in retrieval_dict['recon_part_meshes_after']:
+                if hasattr(mesh, 'vertices') and hasattr(mesh, 'triangles'):
+                    # Convert Open3D mesh to dict with vertices and triangles
+                    mesh_dict = {
+                        'vertices': np.asarray(mesh.vertices),
+                        'triangles': np.asarray(mesh.triangles)
+                    }
+                    serializable_meshes_after.append(mesh_dict)
+                else:
+                    serializable_meshes_after.append(mesh)
+            retrieval_dict['recon_part_meshes_after'] = serializable_meshes_after
+        
+        if 'shape_mesh' in retrieval_dict:
+            mesh = retrieval_dict['shape_mesh']
+            if hasattr(mesh, 'vertices') and hasattr(mesh, 'triangles'):
+                mesh_dict = {
+                    'vertices': np.asarray(mesh.vertices),
+                    'triangles': np.asarray(mesh.triangles)
+                }
+                retrieval_dict['shape_mesh'] = mesh_dict
+        
         joblib.dump(retrieval_dict, os.path.join(shape_folder, str(shape_id)+'_'+str(k)+'.joblib'))
 
 def finalize_resolve_shape(shape_id, shape_ids, part_meshes, part_vol_pcs, part_sur_pcs, shape_meshes, shape_vol_pcs, shape_sur_pcs, summary_folder, results_folder):
@@ -324,7 +364,7 @@ def resolve(data_dir, exp_folder, part_dataset, part_category, part_count, shape
             resolve_shape(shape_id, train_shape_ids, part_meshes, part_vol_pcs, part_sur_pcs, train_shape_meshes, train_shape_vol_pcs, train_shape_sur_pcs, train_summary_folder, train_results_folder)    
             finalize_resolve_shape(shape_id, train_shape_ids, part_meshes, part_vol_pcs, part_sur_pcs, train_shape_meshes, train_shape_vol_pcs, train_shape_sur_pcs, train_summary_folder, train_results_folder)    
     
-    test_shape_meshes, test_shape_vol_pcs, test_shape_sur_pcs = get_shapes(data_dir, shape_dataset, shape_category, test_shape_ids, test_shape_count, all_formats=True)    
+    test_shape_meshes, test_shape_vol_pcs, test_shape_sur_pcs = kaedim_get_shapes(data_dir, shape_dataset, shape_category, test_shape_ids, test_shape_count, all_formats=True)    
     test_results_folder = os.path.join(exp_folder, 'test_results')
     test_summary_folder = os.path.join(exp_folder, 'test_summary')
         
