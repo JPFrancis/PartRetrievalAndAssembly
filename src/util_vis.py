@@ -4,15 +4,16 @@ import os
 import plotly.graph_objects as go
 import pyrender
 import plotly.express as px
-import numpy as np
 import matplotlib.pyplot as plt
-import os
 from sklearn.manifold import TSNE
-import matplotlib.pyplot as plt
 import torch
-import matplotlib.pyplot as plt
 import trimesh
 from util_motion import rotate_with_axis_center_angle
+
+# Monkey patch for NumPy 2.0 compatibility with pyrender
+# This fixes the issue where np.infty was removed in NumPy 2.0
+if not hasattr(np, 'infty'):
+    np.infty = np.inf
 
 print(torch.__version__)
 
@@ -153,7 +154,8 @@ def render_meshes(meshes, is_target, filename):
     #scene.add(light3, pose=light_pose3)
     #scene.add(light4, pose=light_pose4)
     r = pyrender.OffscreenRenderer(1000, 1000)
-    color, depth = r.render(scene, flags=224|2048)
+    # Disable shadow mapping to avoid OpenGL shader issues
+    color, depth = r.render(scene, flags=224)
     plt.figure()
     #plt.subplot(1,2,1)
     plt.axis('off')

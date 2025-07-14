@@ -32,12 +32,30 @@ def merge2mesh(mesh1, mesh2):
     new_mesh.vertices = np.concatenate((copy.deepcopy(mesh1.vertices), copy.deepcopy(mesh2.vertices)))
     return new_mesh
 
+def o3d_to_trimesh(o3d_mesh):
+    """Convert Open3D mesh to trimesh mesh"""
+    import open3d as o3d
+    vertices = np.asarray(o3d_mesh.vertices)
+    triangles = np.asarray(o3d_mesh.triangles)
+    trimesh_mesh = trimesh.Trimesh(vertices=vertices, faces=triangles)
+    return trimesh_mesh
+
 def merge_meshes(meshes):
     if len(meshes) == 0:
         return None
-    base_mesh = meshes[0]
-    for i in range(1, len(meshes)):
-        base_mesh = merge2mesh(base_mesh, meshes[i])
+    
+    # Convert Open3D meshes to trimesh meshes if needed
+    trimesh_meshes = []
+    for mesh in meshes:
+        if hasattr(mesh, 'triangles'):  # Open3D mesh
+            trimesh_mesh = o3d_to_trimesh(mesh)
+            trimesh_meshes.append(trimesh_mesh)
+        else:  # Already a trimesh mesh
+            trimesh_meshes.append(mesh)
+    
+    base_mesh = trimesh_meshes[0]
+    for i in range(1, len(trimesh_meshes)):
+        base_mesh = merge2mesh(base_mesh, trimesh_meshes[i])
     return base_mesh
 
 def volumetric_sample_mesh(mesh, sample_count,wait_time = 600):
